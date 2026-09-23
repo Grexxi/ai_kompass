@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Der KI-Kompass</title>
+<meta property="og:title" content="Der KI-Kompass" />
+<meta property="og:description" content="15 Fragen. Zwei Achsen. Welcher der 30 KI-Typen bist du?" />
+<meta name="twitter:card" content="summary" />
+<style>
+  html, body { margin: 0; padding: 0; background: #1a1a2e; }
+  * { box-sizing: border-box; }
+  button { overflow-wrap: anywhere; }
+  [lang="de-CH"] { hyphens: auto; }
+  #loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #ffdc64; font-family: system-ui, sans-serif; font-size: 15px; flex-direction: column; gap: 12px; text-align: center; padding: 20px; }
+  #loading small { color: rgba(255,255,255,0.4); font-size: 12px; max-width: 340px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+</head>
+<body>
+<div id="root"><div id="loading">Der Kompass wird geladen …<small id="hint"></small></div></div>
+<script>
+  setTimeout(function(){
+    var h = document.getElementById('hint');
+    if (h && document.getElementById('loading')) {
+      var m = [];
+      if (typeof React === 'undefined') m.push('React');
+      if (typeof ReactDOM === 'undefined') m.push('ReactDOM');
+      if (typeof Babel === 'undefined') m.push('Babel');
+      h.textContent = m.length ? ('Konnte nicht geladen werden: ' + m.join(', ') + '. Möglicherweise blockiert dieses Netzwerk den Server für die benötigten Skripte.') : 'Die Skripte wurden geladen, aber die Anwendung ist nicht gestartet. Die Fehlermeldung findest du in der Browser-Konsole (F12).';
+    }
+  }, 8000);
+  window.addEventListener('error', function(e){ var h = document.getElementById('hint'); if (h) h.textContent = 'Fehler: ' + (e.message || e.error); });
+</script>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect } = React;
+console.log("%c KI-Kompass v12 DE ", "background:#ffdc64;color:#1a1a2e;font-weight:bold;padding:2px 6px;border-radius:3px;", "geladen — 15 Fragen, 30 Typen, Mahalanobis-Zuordnung, Übersicht aller Typen");
+
+const QUESTIONS = [
+  {
+    "topic": "KI und Bewusstsein",
+    "prompt": "Haben KI-Systeme ein Bewusstsein? Haben wir ihnen gegenüber eine Verantwortung?",
+    "options": [
+      {
+        "text": "Nein. Das ist ein System, das das nächste Wort vorhersagt. Die Debatte ist peinlich.",
+        "impact": -7,
+        "valence": 0
+      },
+      {
+        "text": "Heute nicht, aber vielleicht ist es irgendwann möglich.",
+        "impact": 2,
+        "valence": 0
+      },
+      {
+        "text": "Da passiert schon etwas, aber es ist nicht dasselbe wie menschliches Erleben.",
+        "impact": 5,
+        "valence": 3
+      },
+      {
+        "text": "Wir sollten auf KI moralisch ungefähr so viel Rücksicht nehmen wie auf Menschen.",
+        "impact": 8,
+        "valence": 4
+      },
+      {
+        "text": "KI ist die nächste Stufe in der Evolution der Intelligenz auf der Erde.",
+        "impact": 10,
+        "valence": 8
+      }
+    ]
+  },
+  {
+    "topic": "Kreatives Schaffen",
+    "prompt": "Kunst, Texte und Musik aus der KI – was passiert da eigentlich?",
+    "options": [
+      {
+        "text": "Die Arbeit anderer wird durch eine Statistikmaschine geschleust und als etwas Neues ausgegeben.",
+        "impact": -3,
+        "valence": -8
+      },
+      {
+        "text": "Billige Nachahmungen, die das Internet mit Schrott fluten.",
+        "impact": 2,
+        "valence": -6
+      },
+      {
+        "text": "Ein nützliches Werkzeug für Entwürfe. Damit etwas daraus wird, braucht es weiterhin Menschen.",
+        "impact": 3,
+        "valence": 2
+      },
+      {
+        "text": "Ein echtes neues kreatives Medium – so wie damals die Fotografie.",
+        "impact": 7,
+        "valence": 6
+      },
+      {
+        "text": "Die Demokratisierung der Kreativität selbst.",
+        "impact": 9,
+        "valence": 9
+      }
+    ]
+  },
+  {
+    "topic": "Arbeit und Wirtschaft",
+    "prompt": "Was wird KI mit der Arbeitswelt machen?",
+    "options": [
+      {
+        "text": "Vor allem Beschäftigungstherapie für Beratungsfirmen. Unter dem Strich: Rauschen.",
+        "impact": -6,
+        "valence": -2
+      },
+      {
+        "text": "Manche Aufgaben automatisieren, andere schaffen. Der übliche Wandel.",
+        "impact": 1,
+        "valence": 1
+      },
+      {
+        "text": "Millionen Menschen aus ihren Jobs verdrängen und den Wohlstand noch stärker konzentrieren.",
+        "impact": 7,
+        "valence": -8
+      },
+      {
+        "text": "Menschen von eintöniger Arbeit befreien und neue Berufe schaffen, die wir heute noch nicht kennen.",
+        "impact": 7,
+        "valence": 7
+      },
+      {
+        "text": "Den grössten Teil menschlicher Arbeit überflüssig machen. Was danach kommt, ist die eigentliche Frage.",
+        "impact": 10,
+        "valence": 0
+      }
+    ]
+  },
+  {
+    "topic": "KI und Wahrheit",
+    "prompt": "Was macht KI mit unserer Informationswelt?",
+    "options": [
+      {
+        "text": "Eine aufgeblasene Autovervollständigung macht das Internet schlechter. Die «Wissenskatastrophe» besteht nicht darin, dass KI so mächtig ist – sondern darin, dass Menschen das glauben.",
+        "impact": -4,
+        "valence": -7
+      },
+      {
+        "text": "Sie produziert massenhaft Unsinn, der überzeugend klingt. Eine Wissenskatastrophe.",
+        "impact": 3,
+        "valence": -9
+      },
+      {
+        "text": "Insgesamt verschlechtert sie die Lage: Deepfakes, Suchmaschinen-Spam, erfundene Quellen.",
+        "impact": 4,
+        "valence": -6
+      },
+      {
+        "text": "Licht und Schatten. Bessere Suche und Analyse, mehr Desinformation. Hält sich die Waage.",
+        "impact": 3,
+        "valence": 0
+      },
+      {
+        "text": "Unter dem Strich ist sie hilfreich. Recherchieren, Fakten prüfen und Lernen waren noch nie so einfach.",
+        "impact": 5,
+        "valence": 5
+      },
+      {
+        "text": "Eine Revolution beim Zugang zu Wissen. Jetzt haben alle eine persönliche Rechercheassistenz.",
+        "impact": 8,
+        "valence": 8
+      }
+    ]
+  },
+  {
+    "topic": "Die KI-Branche",
+    "prompt": "Was hältst du von den Unternehmen, die KI entwickeln?",
+    "options": [
+      {
+        "text": "Eine Blase aus Hype, Risikokapital und gehorteten GPUs. Sie wird platzen.",
+        "impact": -8,
+        "valence": -5
+      },
+      {
+        "text": "Zu grosse Versprechen, zu wenig Geld für Sicherheit und viel zu viel Tempo. Typisch Tech-Branche.",
+        "impact": 2,
+        "valence": -5
+      },
+      {
+        "text": "Eine echte Branche mit echten Produkten. Ein bisschen Hype, ein bisschen Substanz.",
+        "impact": 4,
+        "valence": 2
+      },
+      {
+        "text": "Sie bauen etwas wirklich Wichtiges, auch wenn sich die Geschäftsmodelle erst noch finden müssen.",
+        "impact": 7,
+        "valence": 5
+      },
+      {
+        "text": "Die prägendste Branche seit der Halbleiterindustrie.",
+        "impact": 10,
+        "valence": 6
+      }
+    ]
+  },
+  {
+    "topic": "Existenzielle Risiken",
+    "prompt": "Könnte KI die Existenz der Menschheit bedrohen?",
+    "options": [
+      {
+        "text": "Nein. Das ist Science-Fiction-Panik von Leuten, die zu oft Terminator gesehen haben.",
+        "impact": -6,
+        "valence": 3
+      },
+      {
+        "text": "Ehrlich? Alles halb so wild. Es ist ein Werkzeug. Die Angst davor ist viel gefährlicher als die Technologie.",
+        "impact": -5,
+        "valence": 6
+      },
+      {
+        "text": "Nicht durch die Technologie selbst, aber durch ihren Missbrauch: Überwachung, Waffen, Kontrolle.",
+        "impact": 4,
+        "valence": -5
+      },
+      {
+        "text": "Die Wahrscheinlichkeit ist klein, aber nicht null. Ernst nehmen, ohne in Panik zu geraten.",
+        "impact": 6,
+        "valence": -2
+      },
+      {
+        "text": "Ein ernstes Risiko, das die Entwickler verantwortungslos ignorieren.",
+        "impact": 8,
+        "valence": -8
+      },
+      {
+        "text": "Die gefährlichste Technologie, die die Menschheit je geschaffen hat.",
+        "impact": 10,
+        "valence": -10
+      }
+    ]
+  },
+  {
+    "topic": "Deine eigene Nutzung",
+    "prompt": "Wie viel nutzt du KI tatsächlich in deinem Alltag?",
+    "options": [
+      {
+        "text": "Ich verzichte aus Prinzip darauf.",
+        "impact": -4,
+        "valence": -6
+      },
+      {
+        "text": "Ich habe sie ausprobiert. Ganz okay. Ich denke nicht gross darüber nach.",
+        "impact": -2,
+        "valence": 1
+      },
+      {
+        "text": "Ich nutze sie regelmässig für bestimmte Aufgaben. Ein brauchbares Werkzeug.",
+        "impact": 3,
+        "valence": 4
+      },
+      {
+        "text": "Sie gehört inzwischen täglich zu meiner Arbeit und meinem Denken.",
+        "impact": 6,
+        "valence": 7
+      },
+      {
+        "text": "Ich kann mir nicht mehr vorstellen, ohne sie zu arbeiten.",
+        "impact": 8,
+        "valence": 9
+      }
+    ]
+  },
+  {
+    "topic": "KI und Medizin",
+    "prompt": "KI im Gesundheitswesen – was steckt wirklich dahinter?",
+    "options": [
+      {
+        "text": "Hype. Die schwierigen Aufgaben in der Medizin sind keine Mustererkennung.",
+        "impact": -5,
+        "valence": -1
+      },
+      {
+        "text": "Einige nützliche Spezialanwendungen, aber längst nicht das, was die Werbung verspricht.",
+        "impact": 1,
+        "valence": 2
+      },
+      {
+        "text": "Sie rettet in der Diagnostik schon heute Leben. Das Beste kommt noch.",
+        "impact": 7,
+        "valence": 8
+      },
+      {
+        "text": "Sie wird die Medizin so grundlegend verändern wie damals die Antibiotika.",
+        "impact": 10,
+        "valence": 9
+      }
+    ]
+  },
+  {
+    "topic": "Trainingsdaten und Einwilligung",
+    "prompt": "KI-Modelle werden mit Daten trainiert, die aus dem Internet gesammelt wurden – oft ohne Erlaubnis. Wie beurteilst du das?",
+    "options": [
+      {
+        "text": "Das ist schlicht Diebstahl. Ohne Zustimmung der Urheber sollte das verboten sein.",
+        "impact": 0,
+        "valence": -9
+      },
+      {
+        "text": "Das ist ethisch fragwürdig. Die Urheber sollten für die Nutzung ihrer Arbeit angemessen entschädigt werden.",
+        "impact": 0,
+        "valence": -5
+      },
+      {
+        "text": "Eine schwierige Abwägung. Vorhandenes Wissen zu nutzen, ist nachvollziehbar, aber die massenhafte Verwertung fremder Inhalte wirft Fragen auf.",
+        "impact": 0,
+        "valence": -1
+      },
+      {
+        "text": "Grundsätzlich vertretbar, solange KI fremde Werke nicht einfach kopiert.",
+        "impact": 0,
+        "valence": 4
+      },
+      {
+        "text": "Kein Problem. Öffentlich zugängliche Inhalte sollten für das Training von KI frei nutzbar sein.",
+        "impact": 0,
+        "valence": 7
+      }
+    ]
+  },
+  {
+    "topic": "KI und Bildung",
+    "prompt": "Schüler und Studentinnen lassen ihre Aufsätze und Hausaufgaben von KI erledigen.",
+    "options": [
+      {
+        "text": "Eine Plagiatsmaschine, deren Texte gerade so zum Bestehen reichen. Schulen geraten wegen eines aufgebohrten Synonymwörterbuchs in Panik.",
+        "impact": -4,
+        "valence": -5
+      },
+      {
+        "text": "Das zerstört den ganzen Sinn von Bildung.",
+        "impact": 3,
+        "valence": -8
+      },
+      {
+        "text": "Ein echtes Problem, auf das Bildungseinrichtungen reagieren müssen. Aber nicht das Ende des Lernens.",
+        "impact": 3,
+        "valence": -3
+      },
+      {
+        "text": "Die Aufgaben müssen sich ändern, nicht die Schülerinnen.",
+        "impact": 4,
+        "valence": 2
+      },
+      {
+        "text": "Das ist wie damals der Taschenrechner im Matheunterricht. Anpassen oder abgehängt werden.",
+        "impact": 6,
+        "valence": 5
+      },
+      {
+        "text": "Das Beste, was der Bildung passieren konnte: individuelle Lernbegleitung für alle.",
+        "impact": 8,
+        "valence": 9
+      }
+    ]
+  },
+  {
+    "topic": "Regulierung",
+    "prompt": "Wie sollen Regierungen mit KI umgehen?",
+    "options": [
+      {
+        "text": "KI wird überschätzt. Der Staat sollte die problematischen Geschäftspraktiken der Anbieter kontrollieren. Für KI selbst braucht es keine besonderen Regeln.",
+        "impact": -3,
+        "valence": -4
+      },
+      {
+        "text": "KI sollte vorerst verboten oder stark eingeschränkt werden, bis ihre Risiken besser verstanden sind.",
+        "impact": 6,
+        "valence": -7
+      },
+      {
+        "text": "KI sollte ähnlich streng wie Arzneimittel geprüft werden: erst Sicherheit nachweisen, dann den Einsatz erlauben.",
+        "impact": 5,
+        "valence": -3
+      },
+      {
+        "text": "Klare Regeln zum Schutz vor Schäden, aber genügend Freiraum für nützliche Anwendungen.",
+        "impact": 4,
+        "valence": 2
+      },
+      {
+        "text": "Der Staat sollte sich weitgehend heraushalten. KI entwickelt sich schneller, als die Gesetzgebung sinnvoll Schritt halten kann.",
+        "impact": 6,
+        "valence": 4
+      },
+      {
+        "text": "KI sollte sich möglichst ungebremst entwickeln können. Regulierung bremst den Fortschritt und schützt etablierte Unternehmen vor Konkurrenz.",
+        "impact": 8,
+        "valence": 7
+      }
+    ]
+  },
+  {
+    "topic": "Die Frage nach allgemeiner KI",
+    "prompt": "Werden wir eine künstliche allgemeine Intelligenz (AGI) bauen – ein System, das intellektuell alles kann, was ein Mensch kann?",
+    "options": [
+      {
+        "text": "Nein. Wir verstehen nicht einmal menschliche Intelligenz. Das ist Jahrzehnte entfernt, wenn es überhaupt je passiert.",
+        "impact": -8,
+        "valence": 0
+      },
+      {
+        "text": "Vielleicht irgendwann, aber mit den heutigen Ansätzen kommen wir dort nicht hin.",
+        "impact": -3,
+        "valence": 0
+      },
+      {
+        "text": "Wir sind näher dran, als die meisten denken. Innerhalb eines Jahrzehnts könnte es so weit sein.",
+        "impact": 8,
+        "valence": 0
+      },
+      {
+        "text": "Im Grunde ist sie schon da. Wir verschieben nur ständig die Messlatte.",
+        "impact": 10,
+        "valence": 3
+      }
+    ]
+  },
+  {
+    "topic": "Wer profitiert?",
+    "prompt": "Wer profitiert im Moment tatsächlich von KI?",
+    "options": [
+      {
+        "text": "Nvidia, Cloud-Anbieter und Abzocker. Das war es dann auch schon.",
+        "impact": -6,
+        "valence": -7
+      },
+      {
+        "text": "Vor allem die grossen Tech-Konzerne. Das Gerede von Demokratisierung ist Marketing.",
+        "impact": 1,
+        "valence": -4
+      },
+      {
+        "text": "Eine Mischung. Die Tech-Unternehmen natürlich, aber auch ganz normale Menschen haben etwas davon.",
+        "impact": 4,
+        "valence": 3
+      },
+      {
+        "text": "Alle, die bereit sind, den Umgang damit zu lernen. Die Werkzeuge stehen bereit.",
+        "impact": 6,
+        "valence": 7
+      },
+      {
+        "text": "Zunehmend alle. Noch nie war eine so leistungsfähige Technologie so leicht zugänglich.",
+        "impact": 8,
+        "valence": 9
+      }
+    ]
+  },
+  {
+    "topic": "In fünf Jahren",
+    "prompt": "Es ist 2031. Was ist aus KI geworden?",
+    "options": [
+      {
+        "text": "Die Blase ist geplatzt. KI gibt es noch, aber der Hype wirkt im Rückblick peinlich.",
+        "impact": -7,
+        "valence": -2
+      },
+      {
+        "text": "Schrittweise Fortschritte. Nützliche Werkzeuge, keine Revolution. Auch Blockchain sollte einmal die Welt verändern.",
+        "impact": -3,
+        "valence": 1
+      },
+      {
+        "text": "Sie hat stetig und spürbar Eingang in Arbeit und Alltag gefunden. Weniger dramatisch als angekündigt, aber durchaus bedeutsam.",
+        "impact": 4,
+        "valence": 4
+      },
+      {
+        "text": "Grosse gesellschaftliche Umbrüche sind im Gang. Arbeitsmärkte, Bildung und Kreativbranchen haben sich grundlegend verändert.",
+        "impact": 8,
+        "valence": 0
+      },
+      {
+        "text": "Wir leben in einer anderen Welt. KI hat alles schneller umgekrempelt, als irgendjemand erwartet hat.",
+        "impact": 10,
+        "valence": 3
+      }
+    ]
+  },
+  {
+    "topic": "KI und Umwelt",
+    "prompt": "KI-Rechenzentren verbrauchen enorme Mengen Strom und Wasser. Wie schwer wiegt das?",
+    "options": [
+      {
+        "text": "Wir verbrauchen unfassbare Mengen Energie und Wasser für eine Technologie, die vor allem Spam erzeugt. Das ist schlicht unverantwortlich.",
+        "impact": -4,
+        "valence": -8
+      },
+      {
+        "text": "Die Umweltkosten wären leichter zu ertragen, wenn wir etwas Brauchbares dafür bekämen. Tun wir aber nicht. Das macht die Verschwendung unvertretbar.",
+        "impact": -2,
+        "valence": -5
+      },
+      {
+        "text": "Man sollte es im Blick behalten. Aber KI-Rechenzentren verbrauchen weniger Strom als Videostreaming in 4K, und gegen Netflix führt auch niemand einen moralischen Kreuzzug.",
+        "impact": -1,
+        "valence": 3
+      },
+      {
+        "text": "Der ökologische Fussabdruck ist real und ernst zu nehmen. Aber der mögliche Nutzen für Medizin, Wissenschaft und Produktivität bewegt sich in einer ganz anderen Grössenordnung.",
+        "impact": 5,
+        "valence": 3
+      },
+      {
+        "text": "Das Umweltargument wird von Leuten völlig übertrieben, die ohnehin gegen KI waren und dann nach dem überzeugendsten Grund dafür gesucht haben.",
+        "impact": 3,
+        "valence": 6
+      }
+    ]
+  }
+];
+
+// 30 archetypes. bounds=[minImpact,maxImpact,minValence,maxValence] are the original concept
+// anchors; classification now uses SEEDS (below), not these rectangles.
+const ARCHETYPES = [
+  {
+    "name": "Die Maschinenstürmerin (liebevoll gemeint)",
+    "person": "Emily Bender",
+    "bounds": [
+      -10,
+      -5,
+      -10,
+      -5
+    ],
+    "color": "#6893bd",
+    "desc": "KI funktioniert nicht so, wie behauptet wird, sie macht alles schlimmer, und du hättest bitte gern dein Internet zurück. Du kannst technisch präzise erklären, warum das ein stochastischer Papagei ist. Und du wirst es tun, egal, ob jemand gefragt hat. Dabei bist du witziger, als man dir zugesteht."
+  },
+  {
+    "name": "Der digitale Eremit",
+    "person": "Jaron Lanier",
+    "bounds": [
+      -10,
+      -5,
+      -5,
+      5
+    ],
+    "color": "#5890b6",
+    "desc": "Du sagst schon, dass die ganze Sichtweise falsch ist, seit die meisten noch gar nichts davon gehört hatten. KI ist weniger eine Technologie als eine Geschichte, mit der das Silicon Valley seine Macht ausbaut. Und die Geschichte ist schlecht. Du liest Bücher aus Papier und brauchst kein Sprachmodell, das dir erklärt, was darin steht."
+  },
+  {
+    "name": "Der pensionierte Ingenieur",
+    "person": "Dan Luu",
+    "bounds": [
+      -10,
+      -5,
+      5,
+      10
+    ],
+    "color": "#32eeb0",
+    "desc": "Ein völlig brauchbares Werkzeug, über das alle den Verstand verlieren. Du hast die erste Version ausprobiert, «nett» gedacht und dein Leben weitergelebt. Die Debatte ist anstrengend, und du kannst belegen, was das Ding kann und was nicht. Du hast recht. Und auf Partys eine ziemliche Spassbremse."
+  },
+  {
+    "name": "Die Verweigerin aus Gewissensgründen",
+    "person": "Holly Herndon",
+    "bounds": [
+      -5,
+      -2,
+      -10,
+      -3
+    ],
+    "color": "#e16a99",
+    "desc": "KI funktioniert nicht gut, richtet echten Schaden an, und du hast dich aus Prinzip ausgeklinkt. Du bist nicht technikfeindlich. Du findest nur diese konkrete Technologie überbewertet und schädlich und hast genug davon, dass dir alle erklären, du würdest sie nicht verstehen. Du verstehst sie sehr wohl. Genau das ist das Problem."
+  },
+  {
+    "name": "Der Journalist",
+    "person": "Sam Kriss",
+    "bounds": [
+      -5,
+      -2,
+      -3,
+      1
+    ],
+    "color": "#83a1be",
+    "desc": "Du findest das Ganze ein bisschen verachtenswert und ein bisschen faszinierend. Die Produkte sind mittelmässig, die Leute, die sie verkaufen, noch schlimmer, und die erzeugte Prosa ist ein Verbrechen am Satz. Trotzdem bohrst du weiter nach. Denn was das alles kulturell bedeutet, ist schon ziemlich merkwürdig."
+  },
+  {
+    "name": "Der Biobauer",
+    "person": "Cal Newport",
+    "bounds": [
+      -5,
+      -2,
+      1,
+      5
+    ],
+    "color": "#76d676",
+    "desc": "KI ist vermutlich ganz okay. Aber für etwas, das dir wichtig ist, wirst du sie nicht verwenden. Dein Schreiben ist dein Schreiben. Dein Denken ist dein Denken. GPS lässt du durchgehen, aber deine Tomaten ziehst du selbst – im übertragenen Sinn. Und du ahnst, dass die Bequemlichkeit einen versteckten Preis hat."
+  },
+  {
+    "name": "Der müde Elternteil",
+    "person": "Cartoons Hate Her",
+    "bounds": [
+      -5,
+      -2,
+      5,
+      10
+    ],
+    "color": "#92b8b8",
+    "desc": "Du hast keine Zeit für KI-Debatten. Einmal hast du damit einen Kindergeburtstag geplant, und das war ganz okay. Deine Kinder wissen mehr darüber als du. Du hättest gern, dass alle – die Heilsverkünder ebenso wie die Untergangspropheten – ein paar Gänge herunterschalten und dich einfach deinen Tag bewältigen lassen."
+  },
+  {
+    "name": "Der Gewerkschafter",
+    "person": "Cory Doctorow",
+    "bounds": [
+      -2,
+      1,
+      -10,
+      -5
+    ],
+    "color": "#fd913b",
+    "desc": "KI ist ein echtes Werkzeug, mit dem man echten Menschen den Wert ihrer echten Arbeit abnimmt, ohne dafür zu bezahlen. Die Singularität ist dir egal. Dich interessieren die Künstler, Autoren und Arbeiter, deren Arbeit das Kapital ausschlachtet. Du bist nicht gegen Technologie. Du bist gegen Diebstahl."
+  },
+  {
+    "name": "Der Skeptiker",
+    "person": "Ed Zitron",
+    "bounds": [
+      -2,
+      1,
+      -5,
+      -1
+    ],
+    "color": "#c0a57c",
+    "desc": "Zu grosse Versprechen, unfassbare Verluste, und die Schäden kommen schneller als der Nutzen. Du hast die Wirtschaftlichkeit durchgerechnet. Es geht nicht auf. Du sagst das laut, du sagst das oft, und du vermutest, dass die Geschichte dir recht geben wird."
+  },
+  {
+    "name": "Der Achselzucker",
+    "person": "Matt Levine",
+    "bounds": [
+      -2,
+      1,
+      -1,
+      1
+    ],
+    "color": "#a69292",
+    "desc": "KI gibt es eben. Du betrachtest sie mit derselben gelassenen Belustigung wie alles andere. Überbewertet? Klar. Aber was ist das nicht? Du nutzt sie, wenn sie nützt, und ignorierst sie, wenn sie es nicht tut. Die Debatte findest du interessanter als die Technologie. Du bleibst entspannt."
+  },
+  {
+    "name": "Das Gratisabo",
+    "person": "Kara Swisher",
+    "bounds": [
+      -2,
+      1,
+      1,
+      5
+    ],
+    "color": "#b8a8a8",
+    "desc": "Es funktioniert, du nutzt es, und bei den grossen Fragen ist das letzte Wort noch nicht gesprochen. Du bist weder ablehnend noch bekehrt: Du schaust, was tatsächlich funktioniert. Die Gratisversion nutzt du gern für das, was sie gut kann. Aber zwanzig Dollar im Monat zahlst du dafür ganz sicher nicht. Irgendwo hört es auf."
+  },
+  {
+    "name": "Die Magnificent-Seven-Kleinanlegerin",
+    "person": "Aella",
+    "bounds": [
+      -2,
+      1,
+      5,
+      10
+    ],
+    "color": "#6ada6a",
+    "desc": "KI ist gut. So insgesamt. Vom Gefühl her. Und du bist ziemlich sicher, dass die Kurse steigen. Du steckst nicht tief in der Technik. Du hast einfach ein gutes Gefühl und ein paar Aktien, mit denen du dich wohlfühlst. Die Zukunft ist aufregend, die Kurve ist dein Freund, und du bist lieber investiert, als recht zu haben."
+  },
+  {
+    "name": "Die Philosophie-Doktorandin",
+    "person": "Katja Grace",
+    "bounds": [
+      1,
+      3,
+      -10,
+      -5
+    ],
+    "color": "#bc86d7",
+    "desc": "Was KI bedeutet, fasziniert dich mehr als das, was sie tut. Und die seltsamen Katastrophenszenarien nimmst du ernst, während alle anderen mit den Augen rollen. Du denkst in Wahrscheinlichkeitsverteilungen. Die «nur Autovervollständigung»-Fraktion und die «es lebt!»-Fraktion erscheinen dir gleichermassen unsauber im Denken."
+  },
+  {
+    "name": "Die Desillusionierte",
+    "person": "Molly White",
+    "bounds": [
+      1,
+      2,
+      -5,
+      -3
+    ],
+    "color": "#ad7ccd",
+    "desc": "Diesen Film hast du schon mit Krypto gesehen. Du weisst, wie er endet. Überzogene Versprechen, weniger Nutzen als beworben, und die konkreten Schäden häufen sich, während alle über die digitale Erlösung streiten. Du dokumentierst die Lücke zwischen Versprechen und Belegen. Akribisch."
+  },
+  {
+    "name": "Die Besorgte",
+    "person": "Kelsey Piper",
+    "bounds": [
+      2,
+      3,
+      -5,
+      -3
+    ],
+    "color": "#af7ce2",
+    "desc": "KI ist real, sie ist mächtig, und genau das macht dir Sorgen. Nicht im Sinne von «Wir werden alle sterben», sondern eher: «Wir sollten wirklich vorsichtiger sein.» Du nimmst die Fähigkeiten ernst und die Risiken auch. Und du hättest die Diskussion gern ein paar Grad nüchterner."
+  },
+  {
+    "name": "Der Überlebenskünstler im Organigramm",
+    "person": "Ethan Mollick",
+    "bounds": [
+      1,
+      3,
+      -3,
+      0
+    ],
+    "color": "#c3c375",
+    "desc": "Deine Firma hat dich zusätzlich zu deinem eigentlichen Job zur KI-Leitung ernannt. Du nutzt sie, manchmal hilft sie, und du hast aufgehört, der Führung zu erklären, was sie kann und was nicht. Du machst kleine Experimente und teilst die Ergebnisse. Probiert einfach etwas aus, sagst du immer wieder. Probiert einfach etwas aus."
+  },
+  {
+    "name": "Der B2B-Software-Berater",
+    "person": "Matt Yglesias",
+    "bounds": [
+      1,
+      3,
+      0,
+      2
+    ],
+    "color": "#debb5f",
+    "desc": "KI wird die totale Faktorproduktivität ganz unauffällig um einen einstelligen Prozentsatz steigern. Und du findest das tatsächlich enorm – auf deine etwas fachnerdige Art. Dein Optimismus lebt in Tabellenkalkulationen, nicht in der Singularität. Du hast schon jemandem das Jevons-Paradoxon erklärt, der gar nicht gefragt hatte."
+  },
+  {
+    "name": "Der Garagentüftler",
+    "person": "Simon Willison",
+    "bounds": [
+      1,
+      3,
+      2,
+      5
+    ],
+    "color": "#51e2c1",
+    "desc": "Du betreibst lokale Modelle, baust kleine Werkzeuge und hast einen Riesenspass dabei. Die Debatte ist dir egal. Dich interessiert, wie du das Ding dazu bringst, etwas Cooles zu machen. Die Technologie ist spannend, und alle, die darüber streiten, wären glücklicher, wenn sie einfach mal ein Terminal öffnen würden."
+  },
+  {
+    "name": "Der Risikokapitalgeber",
+    "person": "Paul Graham",
+    "bounds": [
+      1,
+      3,
+      5,
+      10
+    ],
+    "color": "#ffb22f",
+    "desc": "KI ist die grösste Gelegenheit zur Vermögensbildung seit dem Internet, und du willst auf der richtigen Seite stehen. Du hast einen Essay darüber geschrieben, warum das der wichtigste Moment der Geschichte ist. Und noch einen darüber, warum den Zweiflern die Vorstellungskraft fehlt. Mindestens eines deiner Portfoliounternehmen macht tatsächlich irgendetwas."
+  },
+  {
+    "name": "Der Rüstungslieferant",
+    "person": "Peter Thiel",
+    "bounds": [
+      3,
+      6,
+      -10,
+      -6
+    ],
+    "color": "#d43c3c",
+    "desc": "KI ist enorm mächtig und wird für Überwachung, Kontrolle und Krieg eingesetzt werden. Du hast deinen Frieden damit gemacht. Schliesslich gibt immer noch ein Mensch die Befehle, und der könnte genauso gut an deinem Unternehmen beteiligt sein. Die Dystopie kommt. Die einzige Frage ist, wer sie betreibt."
+  },
+  {
+    "name": "Der Sicherheitsforscher",
+    "person": "Ezra Klein",
+    "bounds": [
+      3,
+      6,
+      -6,
+      -3
+    ],
+    "color": "#ff6a55",
+    "desc": "Du nimmst den rasanten Zuwachs an Fähigkeiten ernst, und er hält dich nachts wach. Nicht aus Panik, sondern weil wir wirklich einen Plan haben sollten. Du willst KI an menschlichen Zielen ausrichten, ihre Funktionsweise verstehen und Leitplanken setzen, bevor sie weiter hochskaliert wird. Alle sollten mal aufhören zu posten und die Fachpublikation lesen."
+  },
+  {
+    "name": "Die Kontextmaschine",
+    "person": "kontextmaschine",
+    "bounds": [
+      3,
+      6,
+      -3,
+      -1
+    ],
+    "color": "#d8895b",
+    "desc": "KI ist real, sie ist mächtig, und die Panik darum findest du genauso ermüdend wie den Hype. Dich interessiert nicht, ob KI gut oder schlecht ist. Dich interessiert, wer den Wert abschöpft, wer Einfluss verliert und welche Institutionen die Geschichte von der KI nutzen, um zu tun, was sie ohnehin schon vorhatten. Wie immer eben."
+  },
+  {
+    "name": "Die Überzeugte",
+    "person": "Amanda Askell",
+    "bounds": [
+      3,
+      6,
+      -1,
+      2
+    ],
+    "color": "#56c1ee",
+    "desc": "KI ist real und mächtig. Wenn wir wirklich sorgsam mit ihr umgehen, kann sie zu den besten Dingen gehören, die wir je geschaffen haben. Du denkst intensiv über ihren Charakter nach, darüber, wie es ist, sie zu sein, und was wir einander schulden. Du bist optimistisch, wie nachdenkliche Menschen optimistisch sind: mit klarem Blick, nicht verklärt."
+  },
+  {
+    "name": "Der Optimist",
+    "person": "Marc Andreessen",
+    "bounds": [
+      3,
+      6,
+      2,
+      5
+    ],
+    "color": "#ffce4c",
+    "desc": "KI heilt Krankheiten, unterrichtet Kinder, befreit Menschen von Arbeit und macht Fachwissen allen zugänglich. Du siehst die Probleme, glaubst aber, dass die Entwicklung zum Guten führt. Die einzige echte Sünde ist, sie auszubremsen. In deinem Bücherregal stehen sowohl Pinker als auch ein Manifest, das du selbst geschrieben hast."
+  },
+  {
+    "name": "Der Futurist",
+    "person": "Robin Hanson",
+    "bounds": [
+      3,
+      6,
+      5,
+      10
+    ],
+    "color": "#ffce59",
+    "desc": "KI verändert alles, und das begeistert dich mehr, als es dich erschreckt. Du modellierst lieber das seltsame neue Gleichgewicht, als dich davor zu fürchten. Du erklärst mit Vergnügen, was eine Wirtschaft digitaler Geister mit Löhnen, Status und Eigentum macht. Und du meinst jedes Wort davon wörtlich."
+  },
+  {
+    "name": "Die Kassandra",
+    "person": "Eliezer Yudkowsky",
+    "bounds": [
+      6,
+      10,
+      -10,
+      -6
+    ],
+    "color": "#ff3824",
+    "desc": "Du erkennst die Macht ganz klar. Genau das macht dir Angst. Du bist kein Skeptiker, sondern das Gegenteil: KI ist so leistungsfähig, dass ihre Entwickler mit verbundenen Augen in einer Dynamitfabrik mit Feuer spielen – für einen Quartalsbonus. Du hast darüber Freundschaften verloren und bereust nichts."
+  },
+  {
+    "name": "Der Weltuntergangs-Prepper",
+    "person": "Connor Leahy",
+    "bounds": [
+      6,
+      10,
+      -6,
+      -2
+    ],
+    "color": "#ee2121",
+    "desc": "Deepfakes, autonome Waffen, Massenüberwachung, der Zusammenbruch des Arbeitsmarkts: KI ist ein Schweizer Taschenmesser zivilisatorischer Risiken. Du weisst nicht genau, welcher Mechanismus uns zuerst erwischt. Aber du bist ziemlich sicher, dass einer es tun wird. Und du postest unermüdlich darüber."
+  },
+  {
+    "name": "Der Gründer",
+    "person": "Sam Altman",
+    "bounds": [
+      6,
+      10,
+      -2,
+      2
+    ],
+    "color": "#e9c567",
+    "desc": "Das wird alles verändern, zum Guten oder zum Schlechten. Du legst dich demonstrativ auf keines von beidem fest. Es geht um die Zivilisation, die Risiken sind real, die Chancen grenzenlos. Deshalb brauchst du sehr viel Geld und sehr wenig Aufsicht. Du warnst vor dem Feuer, während du die Streichhölzer verkaufst."
+  },
+  {
+    "name": "Der Podcast-Jünger",
+    "person": "Lex Fridman",
+    "bounds": [
+      6,
+      10,
+      2,
+      6
+    ],
+    "color": "#ffb739",
+    "desc": "Du hast ein dreistündiges Interview mit einem KI-Forscher gehört, und jetzt hast du Meinungen. Starke Meinungen. Du setzt auf Rechenleistung und gegen Regulierung und hast diesen Monat öfter «exponentiell» gesagt als ein Mathelehrer. Liebe ist die Antwort. Und AGI."
+  },
+  {
+    "name": "Der Prophet",
+    "person": "Ray Kurzweil",
+    "bounds": [
+      6,
+      10,
+      6,
+      10
+    ],
+    "color": "#ffcd3e",
+    "desc": "KI ist das Wichtigste, was unserer Spezies je passiert ist. Und es wird grossartig. Du hast offene Browser-Tabs zur Langlebigkeitsforschung und dein bedingungsloses Grundeinkommen gedanklich schon ausgegeben. Wenn die Singularität kommt, willst du in der ersten Reihe sitzen. Am liebsten bereits hochgeladen."
+  }
+];
+
+
+// ---- classifier (territory math v6: pure nearest-seed in the Mahalanobis metric) ----
+// Built by ai_sim.py: simulate a population with the LIVE mean-scoring formula, whiten by
+// the population covariance (icov), place each archetype's seed at its answerers' centroid,
+// then classify by argmin (x-seed)' icov (x-seed). No expansion, no rectangles, no weights.
+// SEEDS[i] aligns with ARCHETYPES[i] by index. VIEW = [xmin,xmax,ymin,ymax] display window.
+const SEEDS=[[-4.9254,-3.9447],[-4.6232,-2.5776],[-2.3412,0.7331],[-3.6232,-4.2499],[-3.1489,-2.0359],[-0.9724,0.8548],[0.5251,2.4884],[-0.8709,-4.3106],[-0.2632,-2.5317],[0.4834,0.0952],[1.0485,1.9905],[2.2567,3.4456],[1.5874,-4.4281],[0.9743,-2.6591],[1.9612,-2.6360],[1.9008,-0.4955],[2.5198,1.3478],[2.8414,2.4372],[3.8259,4.6287],[2.8393,-4.5023],[3.1648,-2.9320],[3.5688,-0.3995],[3.8678,1.4799],[4.5500,3.1155],[5.6875,5.2573],[3.3652,-4.1950],[4.1860,-1.7333],[5.2766,1.9757],[6.3995,4.5300],[7.0362,5.9291]];
+const ICOV=[[0.151354, -0.117316], [-0.117316, 0.182152]];
+const VIEW=[-5.98, 8.18, -5.74, 6.87];
+
+function mdist(x, y, sx, sy) {           // squared Mahalanobis distance to seed (sx,sy)
+  const dx = x - sx, dy = y - sy;
+  return dx * (ICOV[0][0] * dx + ICOV[0][1] * dy) + dy * (ICOV[1][0] * dx + ICOV[1][1] * dy);
+}
+
+function seedIndex(x, y) {                // nearest seed = the archetype (weights are 0)
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < SEEDS.length; i++) {
+    const d = mdist(x, y, SEEDS[i][0], SEEDS[i][1]);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+function getArchetype(x, y) { return ARCHETYPES[seedIndex(x, y)]; }
+
+// ---- compass chart: territory shading + seed dots; optional user point and seed numbers ----
+function CompassChart({ point, highlightIdx, showNumbers }) {
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const cw = containerRef.current.clientWidth;
+    const size = Math.min(cw, 460);
+    canvas.width = size * 2; canvas.height = size * 2;
+    canvas.style.width = size + "px"; canvas.style.height = size + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(2, 2);
+    const pad = 44, plot = size - pad * 2;
+    const [vx0, vx1, vy0, vy1] = VIEW;
+    const xS = (v) => pad + ((v - vx0) / (vx1 - vx0)) * plot;
+    const yS = (v) => pad + ((vy1 - v) / (vy1 - vy0)) * plot;
+    const xI = (px) => vx0 + ((px - pad) / plot) * (vx1 - vx0);
+    const yI = (py) => vy1 - ((py - pad) / plot) * (vy1 - vy0);
+
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fillRect(0, 0, size, size);
+
+    // territory shading: paint each cell by its nearest seed in the Mahalanobis metric
+    const STEP = 5;
+    for (let py = pad; py < pad + plot; py += STEP) {
+      for (let px = pad; px < pad + plot; px += STEP) {
+        const i = seedIndex(xI(px + STEP / 2), yI(py + STEP / 2));
+        ctx.fillStyle = ARCHETYPES[i].color;
+        ctx.globalAlpha = i === highlightIdx ? 0.58 : 0.20;
+        ctx.fillRect(px, py, STEP, STEP);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // seed dots; chosen one ringed
+    SEEDS.forEach((s, i) => {
+      const sx = xS(s[0]), sy = yS(s[1]);
+      ctx.fillStyle = ARCHETYPES[i].color;
+      ctx.globalAlpha = i === highlightIdx ? 1 : 0.75;
+      ctx.beginPath(); ctx.arc(sx, sy, i === highlightIdx ? 3.5 : 2, 0, Math.PI * 2); ctx.fill();
+      if (showNumbers) {
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.font = "bold 8px system-ui, sans-serif";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText(String(i + 1), sx + 4, sy);
+      }
+    });
+    ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
+
+    // axis cross at impact=0 / valence=0
+    const cx = xS(0), cy = yS(0);
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, pad); ctx.lineTo(cx, pad + plot); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, cy); ctx.lineTo(pad + plot, cy); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // axis labels: larger, with a dark halo so they stay readable over the territory colours
+    const label = (text, x, y, align) => {
+      ctx.textAlign = align;
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(26,26,46,0.9)"; ctx.lineWidth = 4;
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.fillText(text, x, y);
+    };
+    ctx.font = "bold 11px system-ui, sans-serif";
+    // on narrow screens both labels don't fit on one line: move the right one below the axis
+    const leftText = "← VERÄNDERT WENIG", rightText = "VERÄNDERT VIEL →";
+    const fitsOneLine = ctx.measureText(leftText).width + ctx.measureText(rightText).width + 24 < plot;
+    label(leftText, pad + 6, cy - 7, "left");
+    label(rightText, pad + plot - 6, fitsOneLine ? cy - 7 : cy + 16, "right");
+    label("↑ EHER POSITIV", cx, pad - 12, "center");
+    label("↓ EHER NEGATIV", cx, pad + plot + 20, "center");
+
+    if (point) {
+      const px = xS(point[0]), py = yS(point[1]);
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, 22);
+      grad.addColorStop(0, "rgba(255,255,255,0.5)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = highlightIdx >= 0 ? ARCHETYPES[highlightIdx].color : "#fff";
+      ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(pad, pad, plot, plot);
+  }, [point, highlightIdx, showNumbers]);
+  return (
+    <div ref={containerRef} style={{ maxWidth: 460, margin: "0 auto" }}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
+
+// ---- plain-language explanation of the two axes, shown under the chart ----
+function AxisLegend() {
+  const row = { display: "flex", gap: 10, alignItems: "baseline" };
+  const key = { flexShrink: 0, width: 82, fontWeight: 700, color: "#ffdc64" };
+  return (
+    <div style={{ maxWidth: 460, margin: "14px auto 0", padding: "12px 16px", background: "rgba(255,255,255,0.04)", borderRadius: 10, fontSize: 13, lineHeight: 1.5, color: "rgba(255,255,255,0.8)", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={row}><span style={key}>Wirkung ↔</span><span>Wie stark wird KI die Welt verändern? Links: KI verändert wenig. Rechts: KI verändert viel.</span></div>
+      <div style={row}><span style={key}>Bewertung ↕</span><span>Ist diese Veränderung eher positiv oder eher negativ? Oben: eher positiv. Unten: eher negativ.</span></div>
+    </div>
+  );
+}
+
+// ---- the "see all archetypes" view: full chart + every archetype's name/saint/description ----
+function AllArchetypes({ onBack }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "#1a1a2e", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif", padding: "40px 20px" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, textAlign: "center", marginBottom: 6 }}>Alle {ARCHETYPES.length} Typen</h1>
+        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 24 }}>Die ganze Karte. Die Zahlen im Diagramm gehören zu den Typen in der Liste darunter.</p>
+        <CompassChart highlightIdx={-1} showNumbers={true} />
+        <AxisLegend />
+        <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12 }}>
+          {ARCHETYPES.map((a, i) => (
+            <div key={i} style={{ display: "flex", gap: 12, padding: "14px 16px", background: "rgba(255,255,255,0.04)", borderRadius: 10, alignItems: "flex-start" }}>
+              <div style={{ flexShrink: 0, width: 26, textAlign: "right", fontFamily: "monospace", fontSize: 13, color: "rgba(255,255,255,0.4)", paddingTop: 2 }}>{i + 1}</div>
+              <div style={{ flexShrink: 0, width: 12, height: 12, borderRadius: 3, background: a.color, marginTop: 4 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 700, color: a.color, lineHeight: 1.25 }}>{a.name}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 6, fontStyle: "italic" }}>Galionsfigur: {a.person}</div>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.72)", lineHeight: 1.55 }}>{a.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign: "center", marginTop: 28 }}>
+          <button onClick={onBack} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "10px 24px", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>&larr; Zurück</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MIN_ANSWERS = 12;                    // fewer answers give no result
+const MAX_SKIPS = QUESTIONS.length - MIN_ANSWERS;
+
+function AICompass() {
+  const [answers, setAnswers] = useState({});
+  const [currentQ, setCurrentQ] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const total = QUESTIONS.length;
+  const answered = Object.keys(answers).length;
+
+  const handleSelect = (qIdx, optIdx) => {
+    setAnswers((prev) => ({ ...prev, [qIdx]: optIdx }));
+    if (qIdx < total - 1) setTimeout(() => setCurrentQ(qIdx + 1), 200);
+  };
+  const goNext = () => { if (currentQ < total - 1) setCurrentQ(currentQ + 1); };
+  const goBack = () => { if (currentQ > 0) setCurrentQ(currentQ - 1); };
+
+  const computeScores = () => {
+    let iSum = 0, vSum = 0, n = 0;
+    for (const [qIdx, optIdx] of Object.entries(answers)) {
+      const opt = QUESTIONS[parseInt(qIdx)].options[optIdx];
+      iSum += opt.impact; vSum += opt.valence; n++;
+    }
+    if (n === 0) return { rawI: 0, rawV: 0, impact: 0, valence: 0 };
+    const rawI = iSum / n, rawV = vSum / n;
+    // No expansion: seeds live in this same raw (compressed) score space, so we classify
+    // the raw mean directly. The Mahalanobis territories do the spreading, not a curve.
+    return { rawI, rawV, impact: rawI, valence: rawV };
+  };
+
+  const linkStyle = { background: "none", border: "none", color: "rgba(255,220,100,0.7)", fontSize: 13, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px", padding: "6px 0" };
+
+  if (showAll) {
+    return <AllArchetypes onBack={() => setShowAll(false)} />;
+  }
+
+  if (showResult) {
+    const { impact, valence } = computeScores();
+    const idx = seedIndex(impact, valence);
+    const archetype = ARCHETYPES[idx];
+    return (
+      <div style={{ minHeight: "100vh", background: "#1a1a2e", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif", padding: "40px 20px" }}>
+        <div style={{ maxWidth: 520, margin: "0 auto" }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, textAlign: "center", marginBottom: 6 }}>Dein KI-Kompass</h1>
+          <p style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 28 }}>{answered} von {total} Fragen beantwortet</p>
+          <CompassChart point={[impact, valence]} highlightIdx={idx} />
+          <AxisLegend />
+          <div style={{ marginTop: 20, padding: "24px 28px", background: "rgba(255,255,255,0.04)", borderRadius: 12, maxWidth: 460, margin: "20px auto 0", textAlign: "left" }}>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginBottom: 4 }}>Deine Antworten passen am ehesten zu …</div>
+            <div style={{ fontSize: 27, fontWeight: 700, color: archetype.color, marginBottom: 2, lineHeight: 1.2 }}>{archetype.name}</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 12, fontStyle: "italic" }}>Galionsfigur: {archetype.person}</div>
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.72)", lineHeight: 1.6 }}>{archetype.desc}</div>
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)", fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "monospace", lineHeight: 1.6 }}>
+              Wirkung (erwartete Veränderung): {impact > 0 ? "+" : ""}{impact.toFixed(1).replace(".", ",")}<br />
+              Bewertung (positiv/negativ): {valence > 0 ? "+" : ""}{valence.toFixed(1).replace(".", ",")}
+            </div>
+          </div>
+          <p style={{ textAlign: "center", color: "rgba(255,255,255,0.45)", fontSize: 13, fontStyle: "italic", marginTop: 14 }}>Eine humorvolle Selbsteinordnung zur Diskussion über KI.</p>
+          <div style={{ textAlign: "center", marginTop: 18 }}>
+            <button onClick={() => setShowAll(true)} style={linkStyle}>Alle {ARCHETYPES.length} Typen ansehen &rarr;</button>
+          </div>
+          <div style={{ textAlign: "center", marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+            <button onClick={() => setShowResult(false)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "10px 24px", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>Antworten überprüfen</button>
+            <button onClick={() => { setAnswers({}); setCurrentQ(0); setShowResult(false); }} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "10px 24px", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>Neu starten</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const q = QUESTIONS[currentQ];
+  const selectedOpt = answers[currentQ];
+  const progress = (answered / total) * 100;
+  const isLast = currentQ === total - 1;
+  // skipped = earlier questions left unanswered; at most MAX_SKIPS so at least MIN_ANSWERS are given
+  let skipped = 0;
+  for (let i = 0; i < currentQ; i++) if (answers[i] === undefined) skipped++;
+  const canSkip = skipped < MAX_SKIPS;
+  const missing = MIN_ANSWERS - answered;
+  return (
+    <div style={{ minHeight: "100vh", background: "#1a1a2e", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif", padding: "40px 16px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ maxWidth: 560, width: "100%" }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, textAlign: "center", marginBottom: 4 }}>Der KI-Kompass</h1>
+        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 6 }}>{total} Fragen. Wie stehst du wirklich zu KI?</p>
+        <p style={{ textAlign: "center", color: "rgba(255,220,100,0.55)", fontSize: 12, marginBottom: 26 }}>Bei einer Frage unsicher? Du kannst bis zu {MAX_SKIPS} Fragen überspringen. Es zählen nur die Antworten, die du gibst.</p>
+        <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginBottom: 36, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: progress + "%", background: "linear-gradient(90deg, #ffdc64, #e8a030)", borderRadius: 2, transition: "width 0.3s ease" }} />
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,220,100,0.5)", marginBottom: 6 }}>{q.topic}</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", marginBottom: 10, fontFamily: "monospace" }}>{currentQ + 1} / {total}</div>
+        <div key={currentQ} style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.45, marginBottom: 24, minHeight: 48 }}>{q.prompt}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
+          {q.options.map((opt, i) => {
+            const isSel = selectedOpt === i;
+            return (
+              <button key={i} onClick={() => handleSelect(currentQ, i)} style={{ padding: "11px 16px", background: isSel ? "rgba(255,220,100,0.12)" : "rgba(255,255,255,0.03)", border: isSel ? "1px solid rgba(255,220,100,0.4)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: isSel ? "#ffdc64" : "rgba(255,255,255,0.7)", fontSize: 14, lineHeight: 1.45, cursor: "pointer", textAlign: "left", transition: "all 0.12s ease", fontWeight: isSel ? 600 : 400 }}>{opt.text}</button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <button onClick={goBack} disabled={currentQ === 0} style={{ background: "none", border: "none", color: currentQ === 0 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.5)", fontSize: 14, cursor: currentQ === 0 ? "default" : "pointer", padding: "8px 0" }}>&larr; Zurück</button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {selectedOpt === undefined && !isLast && canSkip && (
+              <button onClick={goNext} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 13, cursor: "pointer", padding: "8px 0" }}>Überspringen ({MAX_SKIPS - skipped} übrig) &rarr;</button>
+            )}
+            {selectedOpt === undefined && !isLast && !canSkip && (
+              <span style={{ color: "rgba(255,220,100,0.6)", fontSize: 12, textAlign: "right" }}>Du hast schon {MAX_SKIPS} Fragen übersprungen.<br />Bitte beantworte diese.</span>
+            )}
+            {isLast && answered < MIN_ANSWERS && (
+              <span style={{ color: "rgba(255,220,100,0.6)", fontSize: 12, textAlign: "right" }}>Für ein Ergebnis braucht es mindestens {MIN_ANSWERS} Antworten.<br />{missing === 1 ? "Es fehlt noch 1." : `Es fehlen noch ${missing}.`}</span>
+            )}
+            {selectedOpt !== undefined && !isLast && (
+              <button onClick={goNext} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", padding: "9px 22px", borderRadius: 7, fontSize: 14, cursor: "pointer" }}>Weiter &rarr;</button>
+            )}
+            {isLast && answered >= MIN_ANSWERS && (
+              <button onClick={() => setShowResult(true)} style={{ background: "linear-gradient(135deg, #ffdc64, #e8a030)", border: "none", color: "#1a1a2e", padding: "10px 28px", borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Mein Ergebnis ansehen</button>
+            )}
+          </div>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 30, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <button onClick={() => setShowAll(true)} style={linkStyle}>Alle {ARCHETYPES.length} Typen ansehen &rarr;</button>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+          Original von <a href="https://bambamramfan.tumblr.com" target="_blank" rel="noopener noreferrer" style={{ color: "rgba(126,199,255,0.7)", textDecoration: "none", borderBottom: "1px solid rgba(126,199,255,0.25)" }}>bambamramfan.tumblr.com</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AICompass />);
+var vb = document.createElement("div");
+vb.textContent = "Deutsch · v12";
+vb.style.cssText = "position:fixed;bottom:8px;right:10px;font-family:system-ui,sans-serif;font-size:11px;color:rgba(255,255,255,0.35);background:rgba(0,0,0,0.3);padding:2px 7px;border-radius:4px;z-index:9999;pointer-events:none;";
+document.body.appendChild(vb);
+</script>
+</body>
+</html>
